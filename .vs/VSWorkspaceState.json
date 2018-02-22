@@ -8,9 +8,7 @@
     "\\staticfilesmulti\\www",
     "\\staticfilesmulti\\www\\images",
     "\\staticfiles\\conf.d",
-    "\\staticfiles\\www",
-    "\\staticresponse\\conf.d"
+    "\\staticfiles\\www"
   ],
-  "SelectedNode": "\\staticfilesmulti\\www\\images\\test.html",
   "PreviewInSolutionExplorer": false
 }
