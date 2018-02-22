@@ -1,0 +1,33 @@
+apiVersion: apps/v1beta1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: staticfiles-deployment
+spec:
+  selector:
+    matchLabels:
+      app: staticfiles
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      # unlike pod-nginx.yaml, the name is not included in the meta data as a unique name is
+      # generated from the deployment name
+      labels:
+        app: staticfiles
+    spec:
+      containers:
+      - image: nginx
+        name: staticfiles
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/nginx/conf.d
+        - name: www-volume
+          mountPath: /data/www
+      volumes:
+      - name: config-volume
+        configMap:
+          name: staticfiles-config
+      - name: www-volume
+        configMap:
+          name: staticfiles-www

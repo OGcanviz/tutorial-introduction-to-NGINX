@@ -1,0 +1,553 @@
+# An introduction to NGINX #
+## NGINX: Web Server, Reverse Proxy, Load Balancer and HTTP Cache in one ##
+
+In this article we'll show you some of the basic features of NGINX that allows you to accelerate content and application delivery, improve security, facilitate availability and scalability of web sites.
+
+NGINX is currently in use by over 25% of the busiest sites in the world. These include Dropbox, Netflix, Wordpress, Yandex, VK, etc.
+
+NGINX is also in use by all of the major cloud providers such as Microsoft Azure, Amazon AWS and Google Cloud Compute.
+
+## Prerequisites
+
+In order to run the samples in this lab,you will need the following:
+
+- An active [Microsoft Azure](https://azure.microsoft.com/en-us/free "Microsoft Azure") Subscription
+- [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/overview?view=azure-cli-latest "Azure CLI") installed
+- [Curl](https://curl.haxx.se/download.html "Curl") command line tool installed (for downloading ```kubectl``` as well as testing samples in this lab)
+- [Kubernetes CLI (kubectl)](https://kubernetes.io/docs/tasks/tools/install-kubectl/ "Kubernetes CLI (kubectl)") installed
+- A new **Resource Group** and **Container Service (AKS)** created in the [Microsoft Azure Portal](https://portal.azure.com "Microsoft Azure Portal") to run samples in.
+- Open a Command Prompt window (with an active PATH environment variable pointing to Azure CLI and Kubernetes CLI)
+
+
+### 1. How to configure NGINX?
+
+The configuration file structure of NGINX follows these rules as taken from the NGINX documentation at [https://nginx.org/en/docs/beginners_guide.html#conf_structure](https://nginx.org/en/docs/beginners_guide.html#conf_structure "Configuration File’s Structure"):
+
+NGINX consists of modules which are controlled by directives specified in the configuration file. Directives are divided into simple directives and block directives:
+- A simple directive consists of the name and parameters separated by spaces and ends with a semicolon (;). 
+- A block directive has the same structure as a simple directive, but instead of the semicolon it ends with a set of additional instructions surrounded by braces ({ and }). 
+
+If a block directive can have other directives inside braces, it is called a context (examples: ```events```, ```http```, ```server```, and ```location```).
+
+Directives placed in the configuration file outside of any contexts are considered to be in the main context. The ```events``` and ```http``` directives reside in the main context, ```server``` in ```http```, and ```location``` in ```server```.
+
+The rest of a line after the # sign is considered a comment.
+
+A very rudimentary configuration file looks like this:
+
+    http {
+    	server {
+			location / {
+			}
+		}
+    }
+    
+Generally, the configuration file may include several server blocks distinguished by ports on which they listen to and by server names. Once NGINX decides which server processes a request, it tests the URI specified in the request’s header against the parameters of the location directives defined inside the server block.
+
+### 2. Serving static responses with NGINX
+
+It is relatively easy to server static responses straight from NGINX.
+
+Consider the following example configuration file:
+
+	http {
+      server {
+
+        listen 80;
+
+        location / {
+            return 200 'Eureka!';
+        }
+      }
+    }
+    
+This implementation would show the text ```Eureka!``` when accessed through port 80. Mind the ```/``` that indicates the root of the web server. So, if our NGINX implementation was deployed as ```localhost```, browsing to ```http://localhost/``` would result in the following response: ```Eureka!```
+
+### 3. Serving static files with NGINX
+    
+    http {
+      server {
+        listen 80;
+    
+        location / {
+          root /data/www;
+        }
+      }
+    }
+    
+
+This implementation would host files from the ```/data/www``` folder as root of the web site ```http://localhost/```
+
+#### 3.1 Serving static files for multiple locations with NGINX
+
+    http {
+      server {
+        listen 80;
+    
+        location / {
+          root /data/www;
+        }
+
+        location /images {
+          root /data/images;
+        }
+
+      }
+    }
+    
+
+This implementation would host files from the ```/data/www``` folder as root of the web site ```http://localhost/``` identical to the previous example.
+
+However, a request to ```http://localhost/images``` will first be matched against ```/data/www/images``` to form the path on the local system where it will try to find the resource. But since there is also a match for ```http://localhost/images``` through the ```/images``` prefix, that one prevails over the shorter ```/``` prefix. 
+
+> **Note:** Of all the matching ```location``` definitions NGINX selects the one with the **longest** prefix
+
+So, in the above example ```http://localhost/images``` will return the resource located at ```/data/images```.
+
+### 4. Serving an index file
+
+    http {
+      server {
+        listen 80;
+    
+        location / {
+          	index index.php index.htm index.html;
+			root /data/www;
+        }
+
+      }
+    }
+    
+This configuration will allow our NGINX implementation ```http://localhost``` be matched with an index file in ```/data/www```. The first match found is being served as index file as response to the request of ```http://localhost```.  
+
+### 5. Create a simple proxy with NGINX
+
+A proxy server is a server that breaks the connection between sender and receiver. The proxy server will evaluate the incoming request and if allowed relays it to the outgoing side with the receiver.
+
+![](./images/Proxy.png)
+
+    http {
+      server {
+        location / {
+          proxy_pass http://someserver:8080/;
+        }
+
+        location ~ \.(gif|jpg|png)$ {
+          root /data/images;
+        }
+	  }
+    }
+
+The configuration above would server all requests ending with ```.gif```, ```.jpg``` or ```.png``` from the ```/data/images``` folder and pass all other requests on to the proxied server ```someserver``` on port ```8080```. 
+
+### 6. Create a load balancer with NGINX
+
+    http {
+      upstream backend {
+        server  backend1.yourdomain.com  weight=5;
+        server  backend2.yourdomain.com;
+      }
+      server {
+        location / {
+          proxy_pass http://backend/;
+        }
+	  }
+    }
+
+This configuration would route 83.33% (= 5/6) of the requests to the ```backend1``` server and the rest of the requests to ```backend2```.
+
+### 7. Hands-on NGINX with Kubernetes and AKS
+
+In this section we'll explain to you how you can run and test the above NGINX configuration samples in Kubernetes and Azure Container Services (AKS). 
+
+#### 7.1. First time set up ##
+
+If you never used Azure CLI or Kubernetes CLI before or have used it but for a different subscription, you need to link your Azure subscription to the local Kubernetes configuration.
+
+#### 7.1.1 **Kubernetes CLI Local Configuration**
+
+If you are using the Kubernetes CLI on a windows machine, it expects a ```config``` file in this folder location:
+
+````html
+%USERPROFILE%\.kube
+````
+
+For instance, if your user name is TestUser, you may find the kubectl ```config``` file in ```C:\Users\TestUser\.kube```
+
+**Optionally:** If your Kubernetes configuration file is located elsewhere, in order for the Kuberneter CLI (kubectl) to find your configuration, you need to add the above path (including the 'config' file name) to the ```KUBECONFIG``` environment variable in a Command Prompt window, as such:
+
+    SET KUBECONFIG=c:\pathtokubeconfig\config
+
+ 
+#### 7. 1.2 **Logging into Azure from the Command Line**
+
+In order for the ```kubectl``` statements below to be fired against the correct Azure Kubernetes (AKS) instance, we need to link your Azure subscription to the local Kubernetes configuration.
+
+First you need to sign in,  by entering the following command in a Command Prompt window:
+
+
+    az login
+
+This will result in the following output:
+
+    To sign in, use a web browser to open the page https://aka.ms/devicelogin and enter the code B9R2CY8ZP to authenticate.
+    
+Now, you need to open a browser and go to ```https://aka.ms/devicelogin``` and type in the code as returned from the ```az login``` command: ```B9R2CY8ZP```
+
+![Screenshot of the Device Login page](./images/DeviceLogin.png)
+
+This will authenticate your device again Azure and a response similar to this should appear in your Command Prompt window:
+
+    [
+      {
+	    "cloudName": "AzureCloud",
+	    "id": "3b7912c3-ad06-426e-8627-419123727111",
+	    "isDefault": true,
+	    "name": "CanvizDev",
+	    "state": "Enabled",
+	    "tenantId": "3dad2b09-9e66-4eb8-9bef-9f44544b0222",
+	    "user": {
+	      "name": "testuser@canviz.com",
+	      "type": "user"
+	    }
+      }
+    ]
+    
+#### 7.1.3 **Linking your Azure subscription**
+
+Next, you need to link your Azure subscription so that the Azure CLI (```az```) will work against your environment.
+
+    az account set --subscription "3b7912c3-ad06-426e-8627-419123727111" 
+
+#### 7.1.4 **Getting Kubernetes configuration from Azure**
+
+Then, we can make sure we can use **Azure Container Service (AKS)** as our context for when we run ```kubectl``` commands, by entering the following command:
+
+    az aks get-credentials --resource-group TestKub --name TestKub1
+
+where ```TestKub``` is the name of a **Resource Group** you have created for yourself in the Azure Portal and ```TestKub1``` is the name of the **Managed Container Service** (AKS, not ACS!) you created in the Azure Portal. 
+
+If successful, this will result in the following output:
+
+    Merged "TestKub1" as current context in C:\Users\TestUser\.kube\config
+
+
+**Optionally: Set the context, if you have used other Kubernetes clusters before**
+
+If you have been developing against a local or a different Kubernetes cluster, your current ```kubectl``` configuration may point to a different cluster. To correct this, please use the following command:
+
+    kubectl config set-context TestKub1
+
+
+#### 7.1.5 **Verify the correct Kubernetes cluster**
+
+In order for us to verify that we are indeed talking to the correct Kubernetes cluster, we can use the following command:
+
+    kubectl cluster-info
+
+The output of this command should look similar to this:
+
+    Kubernetes master is running at https://testkub1-77a9ac84.hcp.eastus.azmk8s.io:443
+    Heapster is running at https://testkub1-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/heapster/proxy
+    KubeDNS is running at https://testkub1-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+    kubernetes-dashboard is running at https://testkub1-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/kubernetes-dashboard/proxy
+    
+If the URLs in the output point to localhost, please use ```kubectl config set-context``` command to change the context to the correct cluster.
+
+#### 7.1.6. Preparing an NGINX configuration file for use with Kubernetes
+
+In order for Kubernetes to start an NGINX instance with your **customized** request splitting configuration (instead of the default configuration), there are a number of steps we need to perform:
+
+1. We need to create a custom NGINX ```.conf``` configuration file.
+2. We need to make the custom NGINX configuration file readable to a Kubernetes pod by generating a ```ConfigMap``` object.
+3. We need to reference the NGINX configuration from our Pod and Deployment configuration files (written in Yaml format).
+3. We need to verify that the custom NGINX configuration file is successfully picked up by Kubernetes during deployment.
+
+First, we will generate a custom NGINX configuration file that serves our need.
+
+> **Note:** Unlike some of the examples on the web, ```ConfigMaps``` must be mounted as directories! Not as files. This is why the ```nginx-ambassador.conf``` file has to be placed in a folder.
+> 
+
+> **Note:** Also, if you are more experienced with NGINX configuration files: NGINX configuration for Kubernetes cannot contain any top level configuration attributes such as ```http```, ```worker processes```, etc. You will need to strip those from your ```.conf``` file.
+
+
+### 7.2. Serving a Static Response
+
+In this section we'll guide you through the steps to:
+- Create a ```ConfigMap``` object
+- Create a Kubernetes Pod
+- Create a Kubernetes Deployment
+- Expose a Kubernetes Pod
+- Test a Kubernetes Pod
+
+> **Note:** You will need to repeat those steps for each of the samples in this article. 
+
+#### 7.2.1. Create ConfigMap object
+
+Let's consider the configuration file ```nginx-staticresponse.conf```:
+
+    server {
+
+      listen 80;
+
+      location / {
+        return 200 'Eureka!';
+      }
+    }
+
+> **Note:** Notice that we have stripped the top-level ```http { }``` block from our ```.conf``` file.
+
+Now, let's run the command that will generate a ```ConfigMap``` for our custom NGINX ambassador configuration file:
+
+
+    kubectl create configmap staticresponse-config --from-file=conf.d
+
+
+> **Note:** Make sure you run this command from the working folder that contains the ```conf.d``` sub folder.
+
+#### 7.2.2. Create Kubernetes Pod
+
+Next, we will reference the newly created ```ConfigMap``` in our Pod yaml file:
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: staticresponse-pod
+    spec:
+      containers:
+        # This is where the application container would go, for example
+        # - name: some-name
+        #   image: some-image
+        - name: staticresponse
+          image: nginx
+          volumeMounts:
+          - name: staticresponse-config
+            mountPath: /etc/nginx/conf.d
+      volumes:
+      - name: staticresponse-config
+        configMap:
+          name: staticresponse-config
+
+
+> **Note:** It is extremely important when constructing Yaml files to follow the exact indentation from the samples for the configuration elements, as Yaml is extremely sensitive to that and your deployment may fail for unclear reasons because of wrong indentation.
+
+> **Note:** Also, NO tabs can be used for indentation, only spaces. Make sure your code editor doesn't convert spaces into tabs or adds tabs when adding a carriage return. And also make sure when copy & pasting this code, the indentation isn't changed or replaced by tabs.
+
+And then we will **generate** the Kubernetes Pod with the following statement:
+
+```kubectl create -f staticresponse-pod.yaml``` 
+
+#### 7.2.3. Create Kubernetes Deployment
+
+Now the pod should be defined, however this does not yet actually **deploy** our pod: 
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: staticresponse-pod
+    spec:
+      containers:
+        # This is where the application container would go, for example
+        # - name: some-name
+        #   image: some-image
+        - name: staticresponse
+          image: nginx
+          volumeMounts:
+          - name: staticresponse-config
+            mountPath: /etc/nginx/conf.d
+      volumes:
+        - name: staticresponse-config
+          configMap:
+            name: staticresponse-config
+
+For that we need to execute the following command:
+
+```kubectl create -f staticresponse-deployment.yaml```
+
+#### 7.2.4. Expose the Kubernetes Pod
+
+Now the deployment is created, however we are not there yet. In order for us to access the deployment from the outside world, we need to **expose** the deployment by using this command:
+
+```kubectl expose deployment staticresponse-deployment --port=80 --type=LoadBalancer```
+
+#### 7.2.5. Verify the Kubernetes deployment of the NGINX Static Reponse Web Server
+
+In order to see if our pods and deployments actually exist and have succeeded, we'll use the following commands:
+
+```kubectl get pods --output=wide```
+
+This will result in an output similar to this:
+
+    NAME                                         READY STATUSRE  STARTS   AGE         IP             NODE
+    staticresponse-deployment-2259644619-2573j   1/1   Running   0        <invalid>   10.244.0.119   aks-agentpool-25428128-1
+    staticresponse-deployment-2259644619-tbbcx   1/1   Running   0        <invalid>   10.244.1.109   aks-agentpool-25428128-0
+    staticresponse-pod                           1/1   Running   0        <invalid>   10.244.0.118   aks-agentpool-25428128-1
+    
+By executing the following command, we'll be notified when AKS has issued an IP address for our pod so we can test it from the outside world. 
+
+    kubectl get services --watch
+
+> 
+> **Note:** the --watch flag will wait for the IP address to be populated and show the assigned ip address once available
+
+Which results in an output similar to this:
+
+    NAME                        TYPE           CLUSTER-IP    EXTERNAL-IP     PORT(S)        AGE
+    staticresponse-deployment   LoadBalancer   10.0.237.65   <pending>       80:30698/TCP   1m
+    kubernetes                  ClusterIP      10.0.0.1      <none>          443/TCP        5d
+
+And once the IP address has become available:
+
+    NAME                        TYPE           CLUSTER-IP    EXTERNAL-IP     PORT(S)        AGE
+    staticresponse-deployment   LoadBalancer   10.0.237.65   13.90.241.40    80:30698/TCP   1m
+    kubernetes                  ClusterIP      10.0.0.1      <none>          443/TCP        5d
+
+Now, we can test our pod deployment by accessing the EXTERNAL-IP from a browser or a cURL statement:
+
+    curl 13.90.241.40
+    Eureka!
+    
+Eureka! Our first NGINX deployment in Kubernetes on AKS succeeded!
+
+### 7.3. Service Static Files
+
+
+Consider the following NGINX configuration file ```nginx-staticfiles.conf```
+
+      server {
+        listen 80;
+    
+        location / {
+          root /data/www;
+        }
+      }
+    
+
+If we create a ConfigMap object from this NGINX configuration file as explained before:
+
+```kubectl create configmap staticfiles-config --from-file=conf.d```
+
+And since a ConfigMap object in essence is just a collection of key value pairs, we can (ab)use the same mechanism to create a ConfigMap object of our /www folder (containing a sample index.html file), like this:
+
+```kubectl create configmap staticfiles-www --from-file=www```
+
+We can reference both ConfigMap objects as volumes while deploying our Kubernetes pod:
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: staticfiles-pod
+    spec:
+      containers:
+        # This is where the application container would go, for example
+        # - name: some-name
+        #   image: some-image
+        - name: staticfiles
+          image: nginx
+          volumeMounts:
+          - name: staticfiles-config
+            mountPath: /etc/nginx/conf.d
+          - name: staticfiles-www
+            mountPath: /data/www
+      volumes:
+        - name: staticfiles-config
+          configMap:
+            name: staticfiles-config
+        - name: staticfiles-www
+          configMap:
+            name: staticfiles-www
+
+Now, let's create the pod:
+
+```kubectl create -f staticfiles-pod.yaml```
+
+And, similar to above we have added the /www folder as ConfigMap volume to our Deployment Yaml:
+
+    apiVersion: apps/v1beta1 # for versions before 1.9.0 use apps/v1beta2
+    kind: Deployment
+    metadata:
+      name: staticfiles-deployment
+    spec:
+      selector:
+        matchLabels:
+          app: staticfiles
+      replicas: 2 # tells deployment to run 2 pods matching the template
+      template: # create pods using pod definition in this template
+        metadata:
+          # unlike pod-nginx.yaml, the name is not included in the meta data as a unique name is
+          # generated from the deployment name
+          labels:
+            app: staticfiles
+        spec:
+          containers:
+          - image: nginx
+            name: staticfiles
+            ports:
+            - containerPort: 80
+            volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nginx/conf.d
+            - name: www-volume
+              mountPath: /data/www
+          volumes:
+          - name: config-volume
+            configMap:
+              name: staticfiles-config
+          - name: www-volume
+            configMap:
+              name: staticfiles-www
+
+
+Now, let's create the deployment: 
+
+```kubectl create -f staticfiles-deployment.yaml```
+
+And expose the deployment to the outside world:
+
+```kubectl expose deployment staticfiles-deployment --port=80 --type=LoadBalancer```
+
+Then we can list our Kubernetes pods:
+
+```kubectl get pods --output=wide```
+
+And wait for the EXTERNAL-IP address to become available with:
+
+```kubectl get services --watch```
+
+After which we can browse to the external IP address:
+
+    curl 52.234.148.187
+
+Which should result in:
+
+    <html>
+    <body>
+    Static Eureka!
+    </body>
+    </html>
+
+### 7.4. Service Static Files from Multiple Locations 
+
+
+
+### 8. Debugging NGINX
+
+#### 8.1 NGINX log files
+
+In case NGINX does not work as expected, you may try to find out the reason in ```access.log``` and ```error.log files``` in the directory ```/usr/local/nginx/logs``` or ```/var/log/nginx```.
+
+#### 8.2. Accessing the NGINX log files from within the pod
+
+kubectl run curl-staticfilesmulti-deployment --image=radial/busyboxplus:curl -i --tty --rm
+
+
+
+
+ 
+### 20. More Information
+
+To learn all about NGINX, we encourage you to read the book *NGINX Cookbook* by Derek DeJonghe: [https://www.nginx.com/resources/library/complete-nginx-cookbook/](https://www.nginx.com/resources/library/complete-nginx-cookbook/ "NGINX Cookbook")
+
+![](./images/NGINXCookbook.png)
+
+
