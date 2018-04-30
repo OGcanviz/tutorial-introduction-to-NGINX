@@ -562,22 +562,27 @@ In case NGINX does not work as expected, you may try to find out the reason in `
 
 kubectl run curl-staticfilesmulti-deployment --image=radial/busyboxplus:curl -i --tty --rm
 
-### 9. More Information
+### 9. Conclusion
+
+Although not straightforward, we showed that firing up a simple web server in NGINX isn't rocket science either. By also showing how to do this inside a Kubernetes cluster in AKS we hope we have given you an idea of the diversity of platforms that use NGINX out there. Having basic NGINX knowledge can really be beneficiary to you if you ever are tasked with setting up a load balancing web server in the cloud, whether it be AWS, Azure, Google or any other platform, changes are you may come in contact with NGINX at one point.    
+
+### 10. More Information
 
 To learn all about NGINX, we encourage you to read the book *NGINX Cookbook* by Derek DeJonghe: [https://www.nginx.com/resources/library/complete-nginx-cookbook/](https://www.nginx.com/resources/library/complete-nginx-cookbook/ "NGINX Cookbook")
 
 ![](./images/NGINXCookbook.png)
 
-## 10. Contributors ##
+## 11. Contributors ##
 | Roles                                    			| Author(s)                                			|
 | -------------------------------------------------	| ------------------------------------------------- |
 | Author		                                    | Manfred Wittenbols (Canviz) @mwittenbols          |
 
-## 11. Version history ##
+## 12. Version history ##
 
 | Version | Date          		| Comments        |
 | ------- | ------------------- | --------------- |
 | 1.0     | Feb 1st, 2018 	    | Initial release |
+| 1.1     | Apr 30th, 2018 	    | Final review |
 
 ## Disclaimer ##
 **THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.**
