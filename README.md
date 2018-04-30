@@ -286,8 +286,9 @@ If the URLs in the output point to localhost, please use ```kubectl config set-c
 In order for Kubernetes to start an NGINX instance with your **customized** request splitting configuration (instead of the default configuration), there are a number of steps we need to perform:
 
 1. We need to create a custom NGINX ```.conf``` configuration file.
-2. We need to make the custom NGINX configuration file readable to a Kubernetes pod by generating a ```ConfigMap``` object.
-3. We need to reference the NGINX configuration from our Pod and Deployment configuration files (written in Yaml format).
+2. We need to make the custom NGINX configuration file readable to a Kubernetes 
+3.  by generating a ```ConfigMap``` object.
+3. We need to reference the NGINX configuration from our Deployment configuration files (written in Yaml format).
 3. We need to verify that the custom NGINX configuration file is successfully picked up by Kubernetes during deployment.
 
 First, we will generate a custom NGINX configuration file that serves our need.
@@ -301,10 +302,10 @@ First, we will generate a custom NGINX configuration file that serves our need.
 
 In this section we'll guide you through the steps to:
 - Create a ```ConfigMap``` object
-- Create a Kubernetes Pod
-- Create a Kubernetes Deployment
-- Expose a Kubernetes Pod
-- Test a Kubernetes Pod
+- Create a Kubernetes 
+-  and Deployment
+- Expose a Kubernetes Deployment
+- Test a Kubernetes Deployment
 
 > **Note:** You will need to repeat those steps for each of the samples in this article. 
 
@@ -331,72 +332,56 @@ Now, let's run the command that will generate a ```ConfigMap``` for our custom N
 
 > **Note:** Make sure you run this command from the working folder that contains the ```conf.d``` sub folder.
 
-#### 7.2.2. Create Kubernetes Pod
+#### 7.2.2. Create Kubernetes Deployment
 
-Next, we will reference the newly created ```ConfigMap``` in our Pod yaml file:
+Next, we will reference the newly created ```ConfigMap``` in our Deployment yaml file:
 
-    apiVersion: v1
-    kind: Pod
+    apiVersion: apps/v1beta1 # for versions before 1.9.0 use apps/v1beta2
+    kind: Deployment
     metadata:
-      name: staticresponse-pod
+      name: staticresponse-deployment
     spec:
-      containers:
-        # This is where the application container would go, for example
-        # - name: some-name
-        #   image: some-image
-        - name: staticresponse
-          image: nginx
-          volumeMounts:
-          - name: staticresponse-config
-            mountPath: /etc/nginx/conf.d
-      volumes:
-      - name: staticresponse-config
-        configMap:
-          name: staticresponse-config
-
+      selector:
+        matchLabels:
+          app: staticresponse
+      replicas: 2 # tells deployment to run 2 pods matching the template
+      template: # create pods using pod definition in this template
+        metadata:
+          # unlike pod-nginx.yaml, the name is not included in the meta data as a unique name is
+          # generated from the deployment name
+          labels:
+            app: staticresponse
+        spec:
+          containers:
+          - image: nginx
+            name: staticresponse
+            ports:
+            - containerPort: 80
+            volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nginx/conf.d
+          volumes:
+          - name: config-volume
+            configMap:
+              name: staticresponse-config
 
 > **Note:** It is extremely important when constructing Yaml files to follow the exact indentation from the samples for the configuration elements, as Yaml is extremely sensitive to that and your deployment may fail for unclear reasons because of wrong indentation.
 
 > **Note:** Also, NO tabs can be used for indentation, only spaces. Make sure your code editor doesn't convert spaces into tabs or adds tabs when adding a carriage return. And also make sure when copy & pasting this code, the indentation isn't changed or replaced by tabs.
 
-And then we will **generate** the Kubernetes Pod with the following statement:
-
-    kubectl create -f staticresponse-pod.yaml 
-
-#### 7.2.3. Create Kubernetes Deployment
-
-Now the pod should be defined, however this does not yet actually **deploy** our pod: 
-
-    apiVersion: v1
-    kind: Pod
-    metadata:
-      name: staticresponse-pod
-    spec:
-      containers:
-        # This is where the application container would go, for example
-        # - name: some-name
-        #   image: some-image
-        - name: staticresponse
-          image: nginx
-          volumeMounts:
-          - name: staticresponse-config
-            mountPath: /etc/nginx/conf.d
-      volumes:
-        - name: staticresponse-config
-          configMap:
-            name: staticresponse-config
-
-For that we need to execute the following command:
+And then we will **deploy** the Kubernetes pods with the following statement:
 
     kubectl create -f staticresponse-deployment.yaml
 
-#### 7.2.4. Expose the Kubernetes Pod
+#### 7.2.3. Expose the Kubernetes Deployment
 
 Now the deployment is created, however we are not there yet. In order for us to access the deployment from the outside world, we need to **expose** the deployment by using this command:
 
     kubectl expose deployment staticresponse-deployment --port=80 --type=LoadBalancer
 
-#### 7.2.5. Verify the Kubernetes deployment of the NGINX Static Reponse Web Server
+This will create two pods and an NGINX Load Balancer that will load balance requests between the two pods.
+
+#### 7.2.4. Verify the Kubernetes deployment of the NGINX Static Reponse Web Server
 
 In order to see if our pods and deployments actually exist and have succeeded, we'll use the following commands:
 
@@ -407,7 +392,6 @@ This will result in an output similar to this:
     NAME                                         READY STATUSRE  STARTS   AGE         IP             NODE
     staticresponse-deployment-2259644619-2573j   1/1   Running   0        <invalid>   10.244.0.119   aks-agentpool-25428128-1
     staticresponse-deployment-2259644619-tbbcx   1/1   Running   0        <invalid>   10.244.1.109   aks-agentpool-25428128-0
-    staticresponse-pod                           1/1   Running   0        <invalid>   10.244.0.118   aks-agentpool-25428128-1
     
 By executing the following command, we'll be notified when AKS has issued an IP address for our pod so we can test it from the outside world. 
 
@@ -457,37 +441,7 @@ And since a ConfigMap object in essence is just a collection of key value pairs,
 
 ```kubectl create configmap staticfiles-www --from-file=www```
 
-We can reference both ConfigMap objects as volumes while deploying our Kubernetes pod:
-
-    apiVersion: v1
-    kind: Pod
-    metadata:
-      name: staticfiles-pod
-    spec:
-      containers:
-        # This is where the application container would go, for example
-        # - name: some-name
-        #   image: some-image
-        - name: staticfiles
-          image: nginx
-          volumeMounts:
-          - name: staticfiles-config
-            mountPath: /etc/nginx/conf.d
-          - name: staticfiles-www
-            mountPath: /data/www
-      volumes:
-        - name: staticfiles-config
-          configMap:
-            name: staticfiles-config
-        - name: staticfiles-www
-          configMap:
-            name: staticfiles-www
-
-Now, let's create the pod:
-
-```kubectl create -f staticfiles-pod.yaml```
-
-And, similar to above we have added the /www folder as ConfigMap volume to our Deployment Yaml:
+We can reference both ConfigMap objects as volumes while deploying our pods:
 
     apiVersion: apps/v1beta1 # for versions before 1.9.0 use apps/v1beta2
     kind: Deployment
@@ -551,6 +505,123 @@ Which should result in:
     Static Eureka!
     </body>
     </html>
+
+### 7.4. Service Multiple Static Files
+
+In similar fashion we can server multiple static files by expanding our ```location``` block, so we can also serve some images from our server:
+
+Consider the following NGINX configuration file ```nginx-staticfilesmulti.conf```
+
+    server {
+      listen 80;
+  
+      location /images {
+        # the location path is added to the root to make the full path
+        root /data;
+      }
+
+      location / {
+        root /data/www;
+      }
+
+    }
+   
+    
+
+If we create a ConfigMap object from this NGINX configuration file as explained before:
+
+```kubectl create configmap staticfilesmulti-config --from-file=conf.d```
+
+And since a ConfigMap object in essence is just a collection of key value pairs, we can (ab)use the same mechanism to create a ConfigMap object of our /www folder (containing a sample index.html file), like this:
+
+```kubectl create configmap staticfilesmulti-www --from-file=www```
+
+As well as our /images folder:
+
+```kubectl create configmap staticfilesmulti-images --from-file=images```
+
+We can reference all three ConfigMap objects as volumes while deploying our Kubernetes pod:
+
+    apiVersion: apps/v1beta1 # for versions before 1.9.0 use apps/v1beta2
+    kind: Deployment
+    metadata:
+      name: staticfilesmulti-deployment
+    spec:
+      selector:
+        matchLabels:
+          app: staticfilesmulti
+      replicas: 2 # tells deployment to run 2 pods matching the template
+      template: # create pods using pod definition in this template
+        metadata:
+          # unlike pod-nginx.yaml, the name is not included in the meta data as a unique name is
+          # generated from the deployment name
+          labels:
+            app: staticfilesmulti
+        spec:
+          containers:
+          - image: nginx
+            name: staticfilesmulti
+            ports:
+            - containerPort: 80
+            volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nginx/conf.d
+            - name: www-volume
+              mountPath: /data/www
+            - name: images-volume
+              mountPath: /data/images
+          volumes:
+          - name: config-volume
+            configMap:
+              name: staticfilesmulti-config
+          - name: www-volume
+            configMap:
+              name: staticfilesmulti-www
+          - name: images-volume
+            configMap:
+              name: staticfilesmulti-images
+
+Now, let's create the deployment: 
+
+```kubectl create -f staticfilesmulti-deployment.yaml```
+
+And expose the deployment to the outside world:
+
+```kubectl expose deployment staticfilesmulti-deployment --port=80 --type=LoadBalancer```
+
+Then we can list our Kubernetes pods:
+
+```kubectl get pods --output=wide```
+
+And wait for the EXTERNAL-IP address to become available with:
+
+```kubectl get services --watch```
+
+After which we can browse to the external IP address:
+
+    curl 52.234.148.187
+
+Which should result in:
+
+    <html>
+    <body>
+    Static Eureka!
+    </body>
+    </html>
+
+And 
+
+    curl http://52.234.148.187/images/index.html  
+
+Which results in:
+
+    IMAGES FOLDER!
+
+Or, if we want to get the Canviz.png binary:
+
+    curl http://52.234.148.187/images/Canviz.png --output -
+
+Which will result in in messy terminal output and most likely a bunch of beeps.
 
 ### 8. Debugging NGINX
 
