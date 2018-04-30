@@ -621,7 +621,7 @@ Or, if we want to get the Canviz.png binary:
 
     curl http://52.234.148.187/images/Canviz.png --output -
 
-Which will result in in messy terminal output and most likely a bunch of beeps.
+Which will result in a messy terminal output and most likely a bunch of beeps.
 
 ### 8. Debugging NGINX
 
