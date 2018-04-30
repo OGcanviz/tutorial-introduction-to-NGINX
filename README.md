@@ -3,9 +3,13 @@
 
 In this article we'll show you some of the basic features of NGINX that allows you to accelerate content and application delivery, improve security, facilitate availability and scalability of web sites.
 
-NGINX is currently in use by over 25% of the busiest sites in the world. These include Dropbox, Netflix, Wordpress, Yandex, VK, etc.
+NGINX (pronounced as: Engine X) is currently in use by over 25% of the busiest sites in the world. These include Dropbox, Netflix, Wordpress, Yandex, VK, etc.
 
 NGINX is also in use by all of the major cloud providers such as Microsoft Azure, Amazon AWS and Google Cloud Compute.
+
+Configuring NGINX can be a daunting task, and is often not straightforward. However, in this lab we would like to focus on the bare minimal and provide you a few examples of very rudimentary use cases that will give you the confidence to start become more versed in NGINX configuration, as the first step is always the most important one.   
+
+Although NGINX can be used on many different platforms, we will provides these examples in the context of Kuberbetes on Azure Container Services (AKS).
 
 ## Prerequisites
 
@@ -221,22 +225,45 @@ Next, you need to link your Azure subscription so that the Azure CLI (```az```) 
 
 #### 7.1.4 **Getting Kubernetes configuration from Azure**
 
+First, let's make a new resource group in "eastus" (the name of the region in Eastern U.S.), just for this example:
+
+    az group create --name "TestKub" --location="eastus"
+
+This will result in an output like this:
+
+    {
+     "id": "/subscriptions/3b7912c3-ad06-426e-8627-41912372774b/resourceGroups/TestKub",
+     "location": "eastus",
+     "managedBy": null,
+     "name": "TestKub",
+     "properties": {
+       "provisioningState": "Succeeded"
+     },
+     "tags": null
+    }
+
+And also a small Kubernetes cluster to run our examples in:
+
+	az aks create --name TestKub --resource-group TestKub --location "eastus" –-node-count 1 --generate-ssh-keys
+
+> **Note:** This process may take a few minutes to complete.
+
 Then, we can make sure we can use **Azure Container Service (AKS)** as our context for when we run ```kubectl``` commands, by entering the following command:
 
-    az aks get-credentials --resource-group TestKub --name TestKub1
+    az aks get-credentials --resource-group TestKub --name TestKub
 
-where ```TestKub``` is the name of a **Resource Group** you have created for yourself in the Azure Portal and ```TestKub1``` is the name of the **Managed Container Service** (AKS, not ACS!) you created in the Azure Portal. 
+where ```TestKub``` is the name of a **Resource Group** you have created before (or alternatively in the Azure Portal) and ```TestKub``` is the name of the **Managed Container Service** (AKS, not ACS!) you created in the Azure Portal. 
 
 If successful, this will result in the following output:
 
-    Merged "TestKub1" as current context in C:\Users\TestUser\.kube\config
+    Merged "TestKub" as current context in C:\Users\TestUser\.kube\config
 
 
 **Optionally: Set the context, if you have used other Kubernetes clusters before**
 
 If you have been developing against a local or a different Kubernetes cluster, your current ```kubectl``` configuration may point to a different cluster. To correct this, please use the following command:
 
-    kubectl config set-context TestKub1
+    kubectl config set-context TestKub
 
 
 #### 7.1.5 **Verify the correct Kubernetes cluster**
@@ -247,10 +274,10 @@ In order for us to verify that we are indeed talking to the correct Kubernetes c
 
 The output of this command should look similar to this:
 
-    Kubernetes master is running at https://testkub1-77a9ac84.hcp.eastus.azmk8s.io:443
-    Heapster is running at https://testkub1-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/heapster/proxy
-    KubeDNS is running at https://testkub1-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
-    kubernetes-dashboard is running at https://testkub1-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/kubernetes-dashboard/proxy
+    Kubernetes master is running at https://testkub-77a9ac84.hcp.eastus.azmk8s.io:443
+    Heapster is running at https://testkub-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/heapster/proxy
+    KubeDNS is running at https://testkub-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+    kubernetes-dashboard is running at https://testkub-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/kubernetes-dashboard/proxy
     
 If the URLs in the output point to localhost, please use ```kubectl config set-context``` command to change the context to the correct cluster.
 
@@ -265,11 +292,10 @@ In order for Kubernetes to start an NGINX instance with your **customized** requ
 
 First, we will generate a custom NGINX configuration file that serves our need.
 
-> **Note:** Unlike some of the examples on the web, ```ConfigMaps``` must be mounted as directories! Not as files. This is why the ```nginx-ambassador.conf``` file has to be placed in a folder.
+> **Note:** Unlike some of the examples on the web, ```ConfigMaps``` must be mounted as directories! Not as files. This is why the ```nginx-staticresponse.conf``` file has to be placed in a folder.
 > 
 
 > **Note:** Also, if you are more experienced with NGINX configuration files: NGINX configuration for Kubernetes cannot contain any top level configuration attributes such as ```http```, ```worker processes```, etc. You will need to strip those from your ```.conf``` file.
-
 
 ### 7.2. Serving a Static Response
 
@@ -335,7 +361,7 @@ Next, we will reference the newly created ```ConfigMap``` in our Pod yaml file:
 
 And then we will **generate** the Kubernetes Pod with the following statement:
 
-```kubectl create -f staticresponse-pod.yaml``` 
+    kubectl create -f staticresponse-pod.yaml 
 
 #### 7.2.3. Create Kubernetes Deployment
 
@@ -362,19 +388,19 @@ Now the pod should be defined, however this does not yet actually **deploy** our
 
 For that we need to execute the following command:
 
-```kubectl create -f staticresponse-deployment.yaml```
+    kubectl create -f staticresponse-deployment.yaml
 
 #### 7.2.4. Expose the Kubernetes Pod
 
 Now the deployment is created, however we are not there yet. In order for us to access the deployment from the outside world, we need to **expose** the deployment by using this command:
 
-```kubectl expose deployment staticresponse-deployment --port=80 --type=LoadBalancer```
+    kubectl expose deployment staticresponse-deployment --port=80 --type=LoadBalancer
 
 #### 7.2.5. Verify the Kubernetes deployment of the NGINX Static Reponse Web Server
 
 In order to see if our pods and deployments actually exist and have succeeded, we'll use the following commands:
 
-```kubectl get pods --output=wide```
+    kubectl get pods --output=wide
 
 This will result in an output similar to this:
 
@@ -526,10 +552,6 @@ Which should result in:
     </body>
     </html>
 
-### 7.4. Service Static Files from Multiple Locations 
-
-
-
 ### 8. Debugging NGINX
 
 #### 8.1 NGINX log files
@@ -540,14 +562,30 @@ In case NGINX does not work as expected, you may try to find out the reason in `
 
 kubectl run curl-staticfilesmulti-deployment --image=radial/busyboxplus:curl -i --tty --rm
 
-
-
-
- 
-### 20. More Information
+### 9. More Information
 
 To learn all about NGINX, we encourage you to read the book *NGINX Cookbook* by Derek DeJonghe: [https://www.nginx.com/resources/library/complete-nginx-cookbook/](https://www.nginx.com/resources/library/complete-nginx-cookbook/ "NGINX Cookbook")
 
 ![](./images/NGINXCookbook.png)
+
+## 10. Contributors ##
+| Roles                                    			| Author(s)                                			|
+| -------------------------------------------------	| ------------------------------------------------- |
+| Author		                                    | Manfred Wittenbols (Canviz) @mwittenbols          |
+
+## 11. Version history ##
+
+| Version | Date          		| Comments        |
+| ------- | ------------------- | --------------- |
+| 1.0     | Feb 1st, 2018 	    | Initial release |
+
+## Disclaimer ##
+**THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.**
+
+----------
+
+![Canvas Logo](./images/Canviz.png)
+**Canviz Consultancy** 
+ 
 
 
