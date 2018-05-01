@@ -1,19 +1,19 @@
 # An introduction to NGINX #
 ## NGINX: Web Server, Reverse Proxy, Load Balancer and HTTP Cache in one ##
 
-In this article we'll show you some of the basic features of NGINX that allows you to accelerate content and application delivery, improve security, facilitate availability and scalability of web sites.
+In this article we'll show you some of the basic features of NGINX that allow you to accelerate content and application delivery, improve security, facilitate availability and scalability of web sites.
 
 NGINX (pronounced as: Engine X) is currently in use by over 25% of the busiest sites in the world. These include Dropbox, Netflix, Wordpress, Yandex, VK, etc.
 
 NGINX is also in use by all of the major cloud providers such as Microsoft Azure, Amazon AWS and Google Cloud Compute.
 
-Configuring NGINX can be a daunting task, and is often not straightforward. However, in this lab we would like to focus on the bare minimal and provide you a few examples of very rudimentary use cases that will give you the confidence to start become more versed in NGINX configuration, as the first step is always the most important one.   
+Configuring NGINX can be a daunting task, and is often not straightforward. However, in this lab we will focus on the bare minimum and provide you a few examples of very rudimentary use cases that will give you the confidence to start become more versed in NGINX configuration, as the first step is always the most important one.   
 
-Although NGINX can be used on many different platforms, we will provides these examples in the context of Kuberbetes on Azure Container Services (AKS).
+Although NGINX can be used on many different platforms, we will provide these examples in the context of Kuberbetes on Azure Container Services (AKS).
 
 ## Prerequisites
 
-In order to run the samples in this lab,you will need the following:
+In order to run the samples in this lab, you will need the following:
 
 - An active [Microsoft Azure](https://azure.microsoft.com/en-us/free "Microsoft Azure") Subscription
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/overview?view=azure-cli-latest "Azure CLI") installed
@@ -23,19 +23,19 @@ In order to run the samples in this lab,you will need the following:
 - Open a Command Prompt window (with an active PATH environment variable pointing to Azure CLI and Kubernetes CLI)
 
 
-### 1. How to configure NGINX?
+### 1. How to configure NGINX
 
-The configuration file structure of NGINX follows these rules as taken from the NGINX documentation at [https://nginx.org/en/docs/beginners_guide.html#conf_structure](https://nginx.org/en/docs/beginners_guide.html#conf_structure "Configuration File’s Structure"):
+The configuration file structure of NGINX follows the rules in the NGINX documentation at [https://nginx.org/en/docs/beginners_guide.html#conf_structure](https://nginx.org/en/docs/beginners_guide.html#conf_structure "Configuration File’s Structure"):
 
 NGINX consists of modules which are controlled by directives specified in the configuration file. Directives are divided into simple directives and block directives:
-- A simple directive consists of the name and parameters separated by spaces and ends with a semicolon (;). 
-- A block directive has the same structure as a simple directive, but instead of the semicolon it ends with a set of additional instructions surrounded by braces ({ and }). 
+- A simple directive consists of the name and parameters separated by spaces and ends with a semicolon ;. 
+- A block directive has the same structure as a simple directive, but instead of the semicolon it ends with a set of additional instructions surrounded by braces { and }. 
 
 If a block directive can have other directives inside braces, it is called a context (examples: ```events```, ```http```, ```server```, and ```location```).
 
 Directives placed in the configuration file outside of any contexts are considered to be in the main context. The ```events``` and ```http``` directives reside in the main context, ```server``` in ```http```, and ```location``` in ```server```.
 
-The rest of a line after the # sign is considered a comment.
+The rest of a line after the # character is considered a comment.
 
 A very rudimentary configuration file looks like this:
 
@@ -46,11 +46,11 @@ A very rudimentary configuration file looks like this:
 		}
     }
     
-Generally, the configuration file may include several server blocks distinguished by ports on which they listen to and by server names. Once NGINX decides which server processes a request, it tests the URI specified in the request’s header against the parameters of the location directives defined inside the server block.
+Generally, the configuration file may include several server blocks distinguished by ports which they listen to and by server names. Once NGINX decides which server processes a request, it tests the URI specified in the request’s header against the parameters of the location directives defined inside the server block.
 
 ### 2. Serving static responses with NGINX
 
-It is relatively easy to server static responses straight from NGINX.
+It is relatively easy to serve static responses straight from NGINX.
 
 Consider the following example configuration file:
 
@@ -65,7 +65,7 @@ Consider the following example configuration file:
       }
     }
     
-This implementation would show the text ```Eureka!``` when accessed through port 80. Mind the ```/``` that indicates the root of the web server. So, if our NGINX implementation was deployed as ```localhost```, browsing to ```http://localhost/``` would result in the following response: ```Eureka!```
+This implementation shows the text ```Eureka!``` when accessed through port 80. Mind the ```/``` that indicates the root of the web server. So, if our NGINX implementation was deployed as ```localhost```, browsing to ```http://localhost/``` would result in the following response: ```Eureka!```
 
 ### 3. Serving static files with NGINX
     
@@ -80,7 +80,7 @@ This implementation would show the text ```Eureka!``` when accessed through port
     }
     
 
-This implementation would host files from the ```/data/www``` folder as root of the web site ```http://localhost/```
+This implementation hosts files from the ```/data/www``` folder as root of the web site ```http://localhost/```
 
 #### 3.1 Serving static files for multiple locations with NGINX
 
@@ -104,7 +104,7 @@ This implementation would host files from the ```/data/www``` folder as root of 
 
 However, a request to ```http://localhost/images``` will first be matched against ```/data/www/images``` to form the path on the local system where it will try to find the resource. But since there is also a match for ```http://localhost/images``` through the ```/images``` prefix, that one prevails over the shorter ```/``` prefix. 
 
-> **Note:** Of all the matching ```location``` definitions NGINX selects the one with the **longest** prefix
+> **Note:** Of all the matching ```location``` definitions, NGINX selects the one with the **longest** prefix.
 
 So, in the above example ```http://localhost/images``` will return the resource located at ```/data/images```.
 
@@ -122,11 +122,11 @@ So, in the above example ```http://localhost/images``` will return the resource 
       }
     }
     
-This configuration will allow our NGINX implementation ```http://localhost``` be matched with an index file in ```/data/www```. The first match found is being served as index file as response to the request of ```http://localhost```.  
+This configuration allows our NGINX implementation ```http://localhost``` to be matched with an index file in ```/data/www```. The first match found is being served as an index file as response to the request of ```http://localhost```.  
 
 ### 5. Create a simple proxy with NGINX
 
-A proxy server is a server that breaks the connection between sender and receiver. The proxy server will evaluate the incoming request and if allowed relays it to the outgoing side with the receiver.
+A proxy server is a server that breaks the connection between sender and receiver. The proxy server will evaluate the incoming request, and if allowed, relays it to the outgoing side with the receiver.
 
 ![](./images/Proxy.png)
 
@@ -142,7 +142,7 @@ A proxy server is a server that breaks the connection between sender and receive
 	  }
     }
 
-The configuration above would server all requests ending with ```.gif```, ```.jpg``` or ```.png``` from the ```/data/images``` folder and pass all other requests on to the proxied server ```someserver``` on port ```8080```. 
+The configuration above serves all requests ending with ```.gif```, ```.jpg``` or ```.png``` from the ```/data/images``` folder and pass all other requests on to the proxied server ```someserver``` on port ```8080```. 
 
 ### 6. Create a load balancer with NGINX
 
@@ -166,7 +166,7 @@ In this section we'll explain to you how you can run and test the above NGINX co
 
 #### 7.1. First time set up ##
 
-If you never used Azure CLI or Kubernetes CLI before or have used it but for a different subscription, you need to link your Azure subscription to the local Kubernetes configuration.
+If you never used Azure CLI or Kubernetes CLI before, or have used it but for a different subscription, you need to link your Azure subscription to the local Kubernetes configuration.
 
 #### 7.1.1 **Kubernetes CLI Local Configuration**
 
@@ -178,7 +178,7 @@ If you are using the Kubernetes CLI on a windows machine, it expects a ```config
 
 For instance, if your user name is TestUser, you may find the kubectl ```config``` file in ```C:\Users\TestUser\.kube```
 
-**Optionally:** If your Kubernetes configuration file is located elsewhere, in order for the Kuberneter CLI (kubectl) to find your configuration, you need to add the above path (including the 'config' file name) to the ```KUBECONFIG``` environment variable in a Command Prompt window, as such:
+**Optionally:** If your Kubernetes configuration file is located elsewhere, in order for the Kubernetes CLI (kubectl) to find your configuration, you need to add the above path (including the 'config' file name) to the ```KUBECONFIG``` environment variable in a Command Prompt window, as such:
 
     SET KUBECONFIG=c:\pathtokubeconfig\config
 
@@ -196,11 +196,11 @@ This will result in the following output:
 
     To sign in, use a web browser to open the page https://aka.ms/devicelogin and enter the code B9R2CY8ZP to authenticate.
     
-Now, you need to open a browser and go to ```https://aka.ms/devicelogin``` and type in the code as returned from the ```az login``` command: ```B9R2CY8ZP```
+Next, open a browser and go to ```https://aka.ms/devicelogin``` and type in the code as returned from the ```az login``` command: ```B9R2CY8ZP```
 
 ![Screenshot of the Device Login page](./images/DeviceLogin.png)
 
-This will authenticate your device again Azure and a response similar to this should appear in your Command Prompt window:
+This will authenticate your device against Azure and a response similar to this should appear in your Command Prompt window:
 
     [
       {
@@ -259,7 +259,7 @@ If successful, this will result in the following output:
     Merged "TestKub" as current context in C:\Users\TestUser\.kube\config
 
 
-**Optionally: Set the context, if you have used other Kubernetes clusters before**
+**Optionally: Set the context, if you have used other Kubernetes clusters before.**
 
 If you have been developing against a local or a different Kubernetes cluster, your current ```kubectl``` configuration may point to a different cluster. To correct this, please use the following command:
 
@@ -268,7 +268,7 @@ If you have been developing against a local or a different Kubernetes cluster, y
 
 #### 7.1.5 **Verify the correct Kubernetes cluster**
 
-In order for us to verify that we are indeed talking to the correct Kubernetes cluster, we can use the following command:
+In order to verify that we are indeed talking to the correct Kubernetes cluster, we can use the following command:
 
     kubectl cluster-info
 
@@ -279,7 +279,7 @@ The output of this command should look similar to this:
     KubeDNS is running at https://testkub-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
     kubernetes-dashboard is running at https://testkub-77a9ac84.hcp.eastus.azmk8s.io:443/api/v1/namespaces/kube-system/services/kubernetes-dashboard/proxy
     
-If the URLs in the output point to localhost, please use ```kubectl config set-context``` command to change the context to the correct cluster.
+If the URLs in the output point to localhost, please use the ```kubectl config set-context``` command to change the context to the correct cluster.
 
 #### 7.1.6. Preparing an NGINX configuration file for use with Kubernetes
 
@@ -307,7 +307,7 @@ In this section we'll guide you through the steps to:
 - Expose a Kubernetes Deployment
 - Test a Kubernetes Deployment
 
-> **Note:** You will need to repeat those steps for each of the samples in this article. 
+> **Note:** You will need to repeat these steps for each of the samples in this article. 
 
 #### 7.2.1. Create ConfigMap object
 
@@ -398,7 +398,7 @@ By executing the following command, we'll be notified when AKS has issued an IP 
     kubectl get services --watch
 
 > 
-> **Note:** the --watch flag will wait for the IP address to be populated and show the assigned ip address once available
+> **Note:** the --watch flag will wait for the IP address to be populated and show the assigned IP address once available
 
 Which results in an output similar to this:
 
@@ -419,7 +419,7 @@ Now, we can test our pod deployment by accessing the EXTERNAL-IP from a browser 
     
 Eureka! Our first NGINX deployment in Kubernetes on AKS succeeded!
 
-### 7.3. Service Static Files
+### 7.3. Serving Static Files
 
 
 Consider the following NGINX configuration file ```nginx-staticfiles.conf```
@@ -506,9 +506,9 @@ Which should result in:
     </body>
     </html>
 
-### 7.4. Service Multiple Static Files
+### 7.4. Serving Multiple Static Files
 
-In similar fashion we can server multiple static files by expanding our ```location``` block, so we can also serve some images from our server:
+In similar fashion we can serve multiple static files by expanding our ```location``` block, so we can also serve some images from our server:
 
 Consider the following NGINX configuration file ```nginx-staticfilesmulti.conf```
 
@@ -635,7 +635,7 @@ kubectl run curl-staticfilesmulti-deployment --image=radial/busyboxplus:curl -i 
 
 ### 9. Conclusion
 
-Although not straightforward, we showed that firing up a simple web server in NGINX isn't rocket science either. By also showing how to do this inside a Kubernetes cluster in AKS we hope we have given you an idea of the diversity of platforms that use NGINX out there. Having basic NGINX knowledge can really be beneficiary to you if you ever are tasked with setting up a load balancing web server in the cloud, whether it be AWS, Azure, Google or any other platform, changes are you may come in contact with NGINX at one point.    
+Although not straightforward, we showed that firing up a simple web server in NGINX isn't rocket science either. By also showing how to do this inside a Kubernetes cluster in AKS we hope we have given you an idea of the diversity of platforms that use NGINX out there. Having basic NGINX knowledge can really be beneficial to you if you ever are tasked with setting up a load balancing web server in the cloud, whether it be AWS, Azure, Google or any other platform, chances are you may come in contact with NGINX at one point.    
 
 ### 10. More Information
 
@@ -647,6 +647,7 @@ To learn all about NGINX, we encourage you to read the book *NGINX Cookbook* by 
 | Roles                                    			| Author(s)                                			|
 | -------------------------------------------------	| ------------------------------------------------- |
 | Author		                                    | Manfred Wittenbols (Canviz) @mwittenbols          |
+| Editor                                            | Todd Baginski (Canviz) @tbag                      |
 
 ## 12. Version history ##
 
